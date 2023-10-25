@@ -155,3 +155,11 @@ class OptimizationProblem:
         min_values = np.nanmin(lagrangian, axis=1)
         return min_idx, min_values
     
+    def lower_bound_property(self, lagrangians) -> Tuple[bool, float, float]:
+        """
+        Check if the lower bound property is satisfied
+        """
+        lower_bound = np.nanmin(lagrangians)
+        min_value, _ = self.find_min()
+        return lower_bound <= self.find_min()[0], lower_bound, min_value
+    

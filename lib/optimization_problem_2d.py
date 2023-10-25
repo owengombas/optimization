@@ -1,4 +1,5 @@
 import plotly.graph_objects as go
+import plotly.express as px
 import numpy as np
 import pandas as pd
 from typing import List, Tuple, Dict, Callable, Any, Optional, Generic, TypeVar, Union
@@ -6,17 +7,18 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from lib.optimization_problem import OptimizationProblem
 
-class OptimizationProblem2D(OptimizationProblem):    
+
+class OptimizationProblem2D(OptimizationProblem):
     @property
     def x(self) -> np.ndarray:
         return self.domain[0]
-    
+
     def plot_feasible_region_along_constraints(self) -> go.Figure:
         f = self.plot_functions()
         f_2 = self.plot_feasible_region()
         f.add_traces(f_2.data)
         return f
-    
+
     def plot_feasible_region(self) -> go.Figure:
         fig = go.Figure(
             data=[
@@ -24,7 +26,7 @@ class OptimizationProblem2D(OptimizationProblem):
                     y=self.get_fesable_objective_function(),
                     x=self.x,
                     mode="lines",
-                    name="Feasible region"
+                    name="Feasible region",
                 )
             ]
         )
@@ -36,7 +38,7 @@ class OptimizationProblem2D(OptimizationProblem):
                     y=[self.objective_function(min_coords)],
                     x=[min_coords[0]],
                     mode="markers",
-                    name="Min"
+                    name="Min",
                 )
             )
 
@@ -46,7 +48,7 @@ class OptimizationProblem2D(OptimizationProblem):
             yaxis_title="y",
             width=800,
             height=500,
-            margin=dict(r=20, l=10, b=10, t=100)
+            margin=dict(r=20, l=10, b=10, t=100),
         )
 
         return fig
@@ -72,15 +74,66 @@ class OptimizationProblem2D(OptimizationProblem):
                     name=constraint.__name__,
                 )
             )
-        
+
         fig.update_layout(
             title="All functions",
             xaxis_title="x1",
             yaxis_title="y",
             width=800,
             height=500,
-            margin=dict(r=20, l=10, b=10, t=100)
+            margin=dict(r=20, l=10, b=10, t=100),
         )
 
         return fig
-    
+
+    def plot_feasible_region_along_constraints_with_lagrangian(
+        self,
+        lambdas: np.ndarray,
+        lagrangians: np.ndarray,
+        lagrangians_infimum: np.ndarray,
+    ) -> Tuple[go.Figure, go.Figure]:
+        plot = self.plot_feasible_region_along_constraints()
+
+        for i, l in enumerate(lagrangians):
+            plot.add_trace(
+                go.Scatter(
+                    x=self.domain[0],
+                    y=l,
+                    mode="lines",
+                    marker=dict(
+                        size=2,
+                        color="red",
+                        opacity=0.1,
+                    ),
+                    opacity=0.1,
+                    name=f"Lagrangian for lambda = {lambdas[i]}",
+                )
+            )
+
+        plot.add_trace(
+            go.Scatter(
+                x=self.domain[0][lagrangians_infimum[0]],
+                y=lagrangians_infimum[1],
+                mode="lines",
+                marker=dict(
+                    size=1,
+                    color="orange",
+                    opacity=1,
+                ),
+                opacity=1,
+                name=f"g(lambda)",
+            )
+        )
+
+        g = px.line(
+            x=lambdas,
+            y=lagrangians_infimum[1],
+            title="g(lambda)",
+            labels=dict(x="lambda", y="g(lambda)"),
+            # show annotate the values of markers,
+            # and show the markers
+            markers=True,
+            text=lagrangians_infimum[1],
+        )
+
+        return plot, g
