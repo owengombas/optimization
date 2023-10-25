@@ -92,6 +92,7 @@ class OptimizationProblem2D(OptimizationProblem):
         lagrangians: np.ndarray,
         lagrangians_infimum: np.ndarray,
         langrangian_real: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        g_name: str = "real g(lambda)",
     ) -> Tuple[go.Figure, go.Figure]:
         plot = self.plot_feasible_region_along_constraints()
 
@@ -131,14 +132,20 @@ class OptimizationProblem2D(OptimizationProblem):
                 go.Scatter(
                     x=lambdas,
                     y=lagrangians_infimum[1],
-                    mode="lines",
+                    mode="lines+markers+text",
+                    line=dict(
+                        color="orange",
+                        width=1,
+                    ),
                     marker=dict(
-                        size=2,
+                        size=5,
                         color="orange",
                         opacity=1,
                     ),
                     opacity=1,
-                    name=f"g(lambda)",
+                    name=f"g(lambda) from computed lagrangians",
+                    text=[f"{lagrangians_infimum[1][i]:.2f}" for i in range(len(lambdas))],
+                    textposition="top right",
                 ),
             ]
         )
@@ -155,7 +162,7 @@ class OptimizationProblem2D(OptimizationProblem):
                         opacity=1,
                     ),
                     opacity=1,
-                    name=f"real g(lambda)",
+                    name=f"{g_name}",
                 ),
             )
 
