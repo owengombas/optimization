@@ -44,7 +44,7 @@ class OptimizationProblem2D(OptimizationProblem):
 
         fig.update_layout(
             title="Feasible region",
-            xaxis_title="x1",
+            xaxis_title="x",
             yaxis_title="y",
             width=800,
             height=500,
@@ -77,7 +77,7 @@ class OptimizationProblem2D(OptimizationProblem):
 
         fig.update_layout(
             title="All functions",
-            xaxis_title="x1",
+            xaxis_title="x",
             yaxis_title="y",
             width=800,
             height=500,
@@ -165,5 +165,14 @@ class OptimizationProblem2D(OptimizationProblem):
                     name=f"{g_name}",
                 ),
             )
+        
+        g.update_layout(
+            title="g(lambda)",
+            xaxis_title="lambda",
+            yaxis_title="g(lambda)",
+            width=800,
+            height=500,
+            margin=dict(r=20, l=10, b=10, t=100),
+        )
 
         return plot, g
