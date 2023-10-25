@@ -91,6 +91,7 @@ class OptimizationProblem2D(OptimizationProblem):
         lambdas: np.ndarray,
         lagrangians: np.ndarray,
         lagrangians_infimum: np.ndarray,
+        langrangian_real: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> Tuple[go.Figure, go.Figure]:
         plot = self.plot_feasible_region_along_constraints()
 
@@ -125,15 +126,37 @@ class OptimizationProblem2D(OptimizationProblem):
             )
         )
 
-        g = px.line(
-            x=lambdas,
-            y=lagrangians_infimum[1],
-            title="g(lambda)",
-            labels=dict(x="lambda", y="g(lambda)"),
-            # show annotate the values of markers,
-            # and show the markers
-            markers=True,
-            text=lagrangians_infimum[1],
+        g = go.Figure(
+            data=[
+                go.Scatter(
+                    x=lambdas,
+                    y=lagrangians_infimum[1],
+                    mode="lines",
+                    marker=dict(
+                        size=2,
+                        color="orange",
+                        opacity=1,
+                    ),
+                    opacity=1,
+                    name=f"g(lambda)",
+                ),
+            ]
         )
+
+        if self.g is not None:
+            g.add_trace(
+                go.Scatter(
+                    x=lambdas if langrangian_real is None else langrangian_real,
+                    y=self.g(lambdas if langrangian_real is None else langrangian_real),
+                    mode="lines",
+                    marker=dict(
+                        size=2,
+                        color="red",
+                        opacity=1,
+                    ),
+                    opacity=1,
+                    name=f"real g(lambda)",
+                ),
+            )
 
         return plot, g

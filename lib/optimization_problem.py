@@ -14,6 +14,7 @@ class OptimizationProblem:
     _domain: List[np.ndarray]
     _X: np.ndarray
     _memoized_functions: Dict[str, np.ndarray] = {}
+    _g: Callable[[np.ndarray], np.ndarray] = None
 
     @property
     def domain(self):
@@ -42,6 +43,10 @@ class OptimizationProblem:
     @property
     def objective_function_values(self) -> np.ndarray:
         return self.compute_function_values(self._objective_function)
+    
+    @property
+    def g(self) -> Callable[[np.ndarray], np.ndarray]:
+        return self._g
 
     def __init__(
         self,
@@ -65,6 +70,9 @@ class OptimizationProblem:
 
         for fn in [self._objective_function] + self._inequality_constraints + self._equality_constraints:
             self._memoized_functions[fn.__name__] = None
+
+    def set_g(self, g: Callable[[np.ndarray], np.ndarray]):
+        self._g = g
         
     def _compute_variables(self):
         self._X = np.meshgrid(*self._domain)
