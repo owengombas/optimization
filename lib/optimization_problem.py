@@ -74,7 +74,7 @@ class OptimizationProblem:
             function: Callable[[np.ndarray], np.ndarray],
             equality_error: float = 0.3,
             force_recompute: bool = False,
-        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        ) -> np.ndarray:
         if self._memoized_functions[function.__name__] is None or force_recompute:
             self._memoized_functions[function.__name__] = function(self.X)
             if "$inequality_constraint" in function.__name__:
@@ -125,12 +125,33 @@ class OptimizationProblem:
         """
         pass
     
-    def lagrangian(self, lambas: np.ndarray, mus: np.ndarray) -> np.ndarray:
+    def lagrangian(self, lambdas: np.ndarray = np.array([]), mus: np.ndarray = np.array([])) -> np.ndarray:
         """
         Compute the Lagrangian function
+        L(x, lambdas, mus) = f(x) + \sum_{i=1}^m \lambda_i h_i(x) + \sum_{i=1}^p \mu_i g_i(x)
+        where h_i(x) <= 0 are the inequality constraints and g_i(x) = 0 are the equality constraints
         """
-        f0 = self.compute_function_values(self._objective_function)
-        a = [lambas[i] * self._inequality_constraints[i](self.X) for i in range(len(self._inequality_constraints))]
-        b = [mus[i] * self._equality_constraints[i](self.X) for i in range(len(self._equality_constraints))]
+        # sum of the inequality constraints over number of constraints l_i * (f1(x) + f2(x) + ... + fm(x)) using numpy
+        # sum of the equality constraints over number of constraints m_i * (f1(x) + f2(x) + ... + fm(x))
+        inequ = np.array([np.zeros(self.objective_function_values.shape)])
+        equ = np.array([np.zeros(self.objective_function_values.shape)])
 
-        return f0 + a + b
+        if len(self.inequality_constraints):
+            inequ = np.array([lambdas[i] * self.inequality_constraints[i](self.X) for i in range(len(self.inequality_constraints))])
+        
+        if len(self.equality_constraints):
+            equ = np.array([mus[i] * self.equality_constraints[i](self.X) for i in range(len(self.equality_constraints))])
+        
+        inequ = np.sum(inequ, axis=0)
+        equ = np.sum(equ, axis=0)
+
+        return np.sum(np.array([self.objective_function(self.X), inequ, equ]), axis=0)
+    
+    def lagrangian_infimum(self, lagrangian: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the list of minima of the Lagrangians for each value of lambda and mu
+        """
+        min_idx = np.nanargmin(lagrangian, axis=1)
+        min_values = np.nanmin(lagrangian, axis=1)
+        return min_idx, min_values
+    

@@ -11,6 +11,12 @@ class OptimizationProblem2D(OptimizationProblem):
     def x(self) -> np.ndarray:
         return self.domain[0]
     
+    def plot_feasible_region_along_constraints(self) -> go.Figure:
+        f = self.plot_functions()
+        f_2 = self.plot_feasible_region()
+        f.add_traces(f_2.data)
+        return f
+    
     def plot_feasible_region(self) -> go.Figure:
         fig = go.Figure(
             data=[
@@ -22,6 +28,18 @@ class OptimizationProblem2D(OptimizationProblem):
                 )
             ]
         )
+
+        _, min_coords = self.find_min()
+        if min_coords is not None:
+            fig.add_trace(
+                go.Scatter(
+                    y=[self.objective_function(min_coords)],
+                    x=[min_coords[0]],
+                    mode="markers",
+                    name="Min"
+                )
+            )
+
         fig.update_layout(
             title="Feasible region",
             xaxis_title="x1",
@@ -65,3 +83,4 @@ class OptimizationProblem2D(OptimizationProblem):
         )
 
         return fig
+    
