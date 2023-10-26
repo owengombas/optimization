@@ -5,16 +5,21 @@ from typing import List, Tuple, Dict, Callable, Any, Optional, Generic, TypeVar,
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import uuid
+from lib.optimization_function import (
+    OptimizationFunction,
+    OptimizationObjectiveFunction,
+    OptimizationEqualityConstraint,
+    OptimizationInequalityConstraint,
+)
 
 
 class OptimizationProblem:
-    _objective_function: Callable[[np.ndarray], np.ndarray]
-    _inequality_constraints: List[Callable[[np.ndarray], np.ndarray]]
-    _equality_constraints: List[Callable[[np.ndarray], np.ndarray]]
-    _domain: List[np.ndarray]
+    _objective_function: OptimizationObjectiveFunction
+    _inequality_constraints: List[OptimizationInequalityConstraint]
+    _equality_constraints: List[OptimizationEqualityConstraint]
+    _dual_function: OptimizationFunction = None
     _X: np.ndarray
-    _memoized_functions: Dict[str, np.ndarray] = {}
-    _g: Callable[[np.ndarray], np.ndarray] = None
+    _domain: List[np.ndarray]
 
     @property
     def domain(self):
@@ -22,99 +27,79 @@ class OptimizationProblem:
 
     @property
     def X(self):
-        return self._X 
+        return self._X
 
     @property
     def dim(self):
         return len(self._domain) + 1
-    
+
     @property
-    def objective_function(self) -> Callable[[np.ndarray], np.ndarray]:
+    def objective_function(self) -> OptimizationFunction:
         return self._objective_function
-    
+
     @property
-    def equality_constraints(self) -> List[Callable[[np.ndarray], np.ndarray]]:
+    def equality_constraints(self) -> List[OptimizationEqualityConstraint]:
         return self._equality_constraints
-    
+
     @property
-    def inequality_constraints(self) -> List[Callable[[np.ndarray], np.ndarray]]:
+    def inequality_constraints(self) -> List[OptimizationInequalityConstraint]:
         return self._inequality_constraints
-    
+
     @property
-    def objective_function_values(self) -> np.ndarray:
-        return self.compute_function_values(self._objective_function)
-    
-    @property
-    def g(self) -> Callable[[np.ndarray], np.ndarray]:
-        return self._g
+    def dual_function(self) -> OptimizationFunction:
+        return self._dual_function
+
+    @domain.setter
+    def domain(self, X: np.ndarray):
+        self._domain = X
+        self._compute_variables()
+        self._compute_all_functions()
+
+    @dual_function.setter
+    def dual_function(self, dual_function: OptimizationFunction):
+        self._dual_function = dual_function
 
     def __init__(
         self,
         variables_domain: List[np.ndarray],
-        objective_function: Callable[[np.ndarray], np.ndarray],
-        inequality_constraints: List[Callable[[np.ndarray], np.ndarray]] = [],
-        equality_constraints: List[Callable[[np.ndarray], np.ndarray]] = [],
+        objective_function: OptimizationObjectiveFunction,
+        inequality_constraints: List[OptimizationInequalityConstraint] = [],
+        equality_constraints: List[OptimizationEqualityConstraint] = [],
+        dual_function: OptimizationFunction = None,
     ):
         self._objective_function = objective_function
         self._inequality_constraints = inequality_constraints
         self._equality_constraints = equality_constraints
+        self._dual_function = dual_function
         self._domain = variables_domain
+
         self._compute_variables()
+        self._compute_all_functions()
 
-        self._memoized_functions = {}
-        self._objective_function.__name__ = "objective_function"
-        for index, constraint in enumerate(self._equality_constraints):
-            constraint.__name__ = "$equality_constraint_" + str(index)
-        for index, constraint in enumerate(self._inequality_constraints):
-            constraint.__name__ = "$inequality_constraint_" + str(index)
-
-        for fn in [self._objective_function] + self._inequality_constraints + self._equality_constraints:
-            self._memoized_functions[fn.__name__] = None
-
-    def set_g(self, g: Callable[[np.ndarray], np.ndarray]):
-        self._g = g
-        
     def _compute_variables(self):
         self._X = np.meshgrid(*self._domain)
     
-    def compute_function_values(
-            self,
-            function: Callable[[np.ndarray], np.ndarray],
-            equality_error: float = 0.3,
-            force_recompute: bool = False,
-        ) -> np.ndarray:
-        if self._memoized_functions[function.__name__] is None or force_recompute:
-            self._memoized_functions[function.__name__] = function(self.X)
-            if "$inequality_constraint" in function.__name__:
-                self._memoized_functions[function.__name__] = np.where(
-                    self._memoized_functions[function.__name__] <= 0,
-                    self._memoized_functions[function.__name__],
-                    np.nan
-                )
-            if "$equality_constraint" in function.__name__:
-                self._memoized_functions[function.__name__] = np.where(
-                    abs(self._memoized_functions[function.__name__]) <= equality_error,
-                    self._memoized_functions[function.__name__],
-                    np.nan
-                )
-
-        return self._memoized_functions[function.__name__]
+    def _compute_all_functions(self):        
+        self.objective_function.evaluate_function(self.X)
+        
+        for constraint in self._equality_constraints:
+            constraint.evaluate_equality_constraint(self.X)
+        
+        for constraint in self._inequality_constraints:
+            constraint.evaluate_inequality_constraint(self.X)
 
     def get_fesable_objective_function(self) -> np.ndarray:
-        if "objective_function_constrainted" not in self._memoized_functions:
-            Z = self.compute_function_values(self._objective_function)
+        if not self.objective_function.is_memorized("function_constrainted"):
+            Z = self.objective_function.retrieve_memoized_values()
 
             for constraint in self._equality_constraints + self._inequality_constraints:
-                Z_constraint = self.compute_function_values(constraint)
-                Z = np.where(
-                    np.isnan(Z_constraint),
-                    np.nan,
-                    Z
-                )
-                
-            self._memoized_functions["objective_function_constrainted"] = Z
-
-        return self._memoized_functions["objective_function_constrainted"]
+                Z_constraint = constraint.retrieve_constrainted_memorized_values()
+                Z = np.where(np.isnan(Z_constraint), np.nan, Z)
+                self.objective_function.memorize_values("function_constrainted", Z)
+        
+            return Z
+        else:
+            return self.objective_function.retrieve_memoized_values("function_constrainted")
 
     def find_min(self):
         values = self.get_fesable_objective_function()
@@ -125,15 +110,10 @@ class OptimizationProblem:
         value = values[idx]
         return value, coordinates_values
 
-    def slater_condition(self) -> bool:
-        """
-        Check if the Slater condition is satisfied,
-        if the inequality constraints are strictly feasible (< 0),
-        taking into account the equality constraints to be feasible (== 0)
-        """
-        pass
-    
-    def lagrangian(self, lambdas: np.ndarray = np.array([]), mus: np.ndarray = np.array([])) -> np.ndarray:
+    def lagrangian(
+        self, lambdas: np.ndarray = np.array([]), mus: np.ndarray = np.array([]),
+        on_feasible_region: bool = False
+    ) -> OptimizationFunction:
         """
         Compute the Lagrangian function
         L(x, lambdas, mus) = f(x) + \sum_{i=1}^m \lambda_i h_i(x) + \sum_{i=1}^p \mu_i g_i(x)
@@ -141,33 +121,49 @@ class OptimizationProblem:
         """
         # sum of the inequality constraints over number of constraints l_i * (f1(x) + f2(x) + ... + fm(x)) using numpy
         # sum of the equality constraints over number of constraints m_i * (f1(x) + f2(x) + ... + fm(x))
-        inequ = np.array([np.zeros(self.objective_function_values.shape)])
-        equ = np.array([np.zeros(self.objective_function_values.shape)])
 
-        if len(self.inequality_constraints):
-            inequ = np.array([lambdas[i] * self.inequality_constraints[i](self.X) for i in range(len(self.inequality_constraints))])
+        def lagrangian_fn(_X: np.ndarray):
+            return self.objective_function.evaluate_function(self.X) + np.sum(
+                [
+                    lambdas[i] * (self.inequality_constraints[i].retrieve_constrainted_memorized_values() if on_feasible_region else self.inequality_constraints[i].retrieve_memoized_values())
+                    for i in range(len(self.inequality_constraints))
+                ],
+                axis=0,
+            ) + np.sum(
+                [
+                    mus[i] * (self.equality_constraints[i].retrieve_constrainted_memorized_values() if on_feasible_region else self.equality_constraints[i].retrieve_memoized_values())
+                    for i in range(len(self.equality_constraints))
+                ],
+                axis=0,
+            )
         
-        if len(self.equality_constraints):
-            equ = np.array([mus[i] * self.equality_constraints[i](self.X) for i in range(len(self.equality_constraints))])
-        
-        inequ = np.sum(inequ, axis=0)
-        equ = np.sum(equ, axis=0)
+        return OptimizationFunction(
+            lagrangian_fn,
+            name=f"lagrangian_{lambdas}_{mus}",
+        )
 
-        return np.sum(np.array([self.objective_function(self.X), inequ, equ]), axis=0)
-    
-    def lagrangian_infimum(self, lagrangian: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def lagrangian_infimum(
+        self, lagrangians: List[OptimizationFunction]
+    ) -> OptimizationFunction:
         """
         Return the list of minima of the Lagrangians for each value of lambda and mu
         """
-        min_idx = np.nanargmin(lagrangian, axis=1)
-        min_values = np.nanmin(lagrangian, axis=1)
-        return min_idx, min_values
-    
-    def lower_bound_property(self, lagrangians) -> Tuple[bool, float, float]:
+        def lagrangian_infimum_fn(_X: np.ndarray) -> np.ndarray:
+            lagrangians_values = np.array([l.evaluate_function() for l in lagrangians])
+            min_idx = np.nanargmin(lagrangians_values, axis=1)
+            min_values = np.nanmin(lagrangians_values, axis=1)
+            return min_idx, min_values
+        
+        return OptimizationFunction(
+            lagrangian_infimum_fn,
+            name=f"lagrangian_infimum",
+        )
+
+    def lower_bound_property(self, lagrangians: List[OptimizationFunction]) -> Tuple[bool, float, float]:
         """
         Check if the lower bound property is satisfied
         """
-        lower_bound = np.nanmin(lagrangians)
+        lagrangians_values = np.array([l.evaluate_function() for l in lagrangians])
+        lower_bound = np.nanmin(lagrangians_values)
         min_value, _ = self.find_min()
         return lower_bound <= self.find_min()[0], lower_bound, min_value
-    

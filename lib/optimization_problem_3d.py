@@ -20,7 +20,7 @@ class OptimizationProblem3D(OptimizationProblem):
         fig = go.Figure(
             data=[
                 go.Contour(
-                    z=self.objective_function_values,
+                    z=self.objective_function.retrieve_memoized_values(),
                     x=self.x,
                     y=self.y,
                     contours=dict(
@@ -78,7 +78,7 @@ class OptimizationProblem3D(OptimizationProblem):
         fig = go.Figure(
             data=[
                 go.Surface(
-                    z=self.objective_function_values,
+                    z=self.objective_function.retrieve_memoized_values(),
                     x=self.x,
                     y=self.y,
                     opacity=0.2,
@@ -131,7 +131,7 @@ class OptimizationProblem3D(OptimizationProblem):
         fig = go.Figure(
             data=[
                 go.Surface(
-                    z=self.objective_function_values,
+                    z=self.objective_function.retrieve_memoized_values(),
                     x=self.x,
                     y=self.y,
                     opacity=0.8,
@@ -143,10 +143,21 @@ class OptimizationProblem3D(OptimizationProblem):
         fig.update_traces(contours_z=dict(show=True, usecolormap=True,
                                   highlightcolor="limegreen", project_z=True))
 
-        for constraint in self.equality_constraints + self.inequality_constraints:
+        for constraint in self.equality_constraints:
             fig.add_trace(
                 go.Surface(
-                    z=self.compute_function_values(constraint),
+                    z=constraint.retrieve_constrainted_memorized_values(),
+                    x=self.x,
+                    y=self.y,
+                    opacity=1,
+                    showscale=False,
+                )
+            )
+        
+        for constraint in self.inequality_constraints:
+            fig.add_trace(
+                go.Surface(
+                    z=constraint.retrieve_constrainted_memorized_values(),
                     x=self.x,
                     y=self.y,
                     opacity=1,
