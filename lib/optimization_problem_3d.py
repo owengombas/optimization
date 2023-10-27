@@ -5,8 +5,15 @@ from typing import List, Tuple, Dict, Callable, Any, Optional, Generic, TypeVar,
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from lib.optimization_problem import OptimizationProblem
+from lib.optimization_function import (
+    OptimizationFunction,
+    OptimizationObjectiveFunction,
+    OptimizationEqualityConstraint,
+    OptimizationInequalityConstraint,
+)
 
-class OptimizationProblem3D(OptimizationProblem):    
+
+class OptimizationProblem3D(OptimizationProblem):
     @property
     def x(self) -> np.ndarray:
         return self.domain[0]
@@ -14,8 +21,10 @@ class OptimizationProblem3D(OptimizationProblem):
     @property
     def y(self) -> np.ndarray:
         return self.domain[1]
-    
-    def plot_feasable_countours(self) -> Tuple[go.Figure, np.ndarray, np.ndarray, np.ndarray]:        
+
+    def plot_feasable_countours(
+        self,
+    ) -> Tuple[go.Figure, np.ndarray, np.ndarray, np.ndarray]:
         # plot the contour of the objective function
         fig = go.Figure(
             data=[
@@ -30,6 +39,7 @@ class OptimizationProblem3D(OptimizationProblem):
                     ),
                     line_smoothing=1,
                     opacity=0.2,
+                    name=f"{str(self.objective_function)}",
                 )
             ]
         )
@@ -37,7 +47,7 @@ class OptimizationProblem3D(OptimizationProblem):
         # Highlight the feasible region, make the unfeasible region darker
         fig.add_trace(
             go.Contour(
-                z=self.get_fesable_objective_function(),
+                z=self.get_fesable_objective_function()[0],
                 x=self.x,
                 y=self.y,
                 contours=dict(
@@ -48,6 +58,7 @@ class OptimizationProblem3D(OptimizationProblem):
                 line_smoothing=1,
                 opacity=1,
                 showscale=False,
+                name="Feasible region on the objective function",
             )
         )
 
@@ -63,6 +74,7 @@ class OptimizationProblem3D(OptimizationProblem):
                         color="red",
                         opacity=1,
                     ),
+                    name="Min",
                 )
             )
 
@@ -74,7 +86,7 @@ class OptimizationProblem3D(OptimizationProblem):
 
         return fig
 
-    def plot_feasable_3d(self) -> Tuple[go.Figure, np.ndarray, np.ndarray, np.ndarray]:
+    def plot_feasable_3d(self) -> go.Figure:
         fig = go.Figure(
             data=[
                 go.Surface(
@@ -82,21 +94,25 @@ class OptimizationProblem3D(OptimizationProblem):
                     x=self.x,
                     y=self.y,
                     opacity=0.2,
+                    name=f"{str(self.objective_function)}",
                 )
             ]
         )
 
-        
-        fig.update_traces(contours_z=dict(show=True, usecolormap=True,
-                                  highlightcolor="limegreen", project_z=True))
+        fig.update_traces(
+            contours_z=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_z=True
+            )
+        )
 
         fig.add_trace(
             go.Surface(
-                z=self.get_fesable_objective_function(),
+                z=self.get_fesable_objective_function()[0],
                 x=self.x,
                 y=self.y,
                 opacity=1,
                 showscale=False,
+                name="Feasible region on the objective function",
             )
         )
 
@@ -113,6 +129,7 @@ class OptimizationProblem3D(OptimizationProblem):
                         color="red",
                         opacity=1,
                     ),
+                    name="Min",
                 )
             )
 
@@ -122,7 +139,7 @@ class OptimizationProblem3D(OptimizationProblem):
             yaxis_title="x2",
             width=800,
             height=500,
-            margin=dict(r=20, l=10, b=10, t=100)
+            margin=dict(r=20, l=10, b=10, t=100),
         )
 
         return fig
@@ -136,12 +153,16 @@ class OptimizationProblem3D(OptimizationProblem):
                     y=self.y,
                     opacity=0.8,
                     colorscale="Viridis",
+                    name=f"{str(self.objective_function)}",
                 )
             ]
         )
-        
-        fig.update_traces(contours_z=dict(show=True, usecolormap=True,
-                                  highlightcolor="limegreen", project_z=True))
+
+        fig.update_traces(
+            contours_z=dict(
+                show=True, usecolormap=True, highlightcolor="limegreen", project_z=True
+            )
+        )
 
         for constraint in self.equality_constraints:
             fig.add_trace(
@@ -151,9 +172,10 @@ class OptimizationProblem3D(OptimizationProblem):
                     y=self.y,
                     opacity=1,
                     showscale=False,
+                    name=f"{str(constraint)}",
                 )
             )
-        
+
         for constraint in self.inequality_constraints:
             fig.add_trace(
                 go.Surface(
@@ -162,83 +184,33 @@ class OptimizationProblem3D(OptimizationProblem):
                     y=self.y,
                     opacity=1,
                     showscale=False,
+                    name=f"{str(constraint)}",
                 )
             )
-        
+
         fig.update_layout(
             title="All functions",
             xaxis_title="x1",
             yaxis_title="x2",
             width=800,
             height=500,
-            margin=dict(r=20, l=10, b=10, t=100)
+            margin=dict(r=20, l=10, b=10, t=100),
         )
 
         return fig
 
-    def add_lagrangian_trace_3d(
-        self,
-        fig: go.Figure,
-        L: np.ndarray
-    ) -> go.Figure:
-        fig.add_trace(
-            go.Scatter3d(
-                x=self.x,
-                y=self.y,
-                z=L,
-                mode="markers",
-                showlegend=False,
-                line=dict(
-                    color="red",
-                    width=2,
-                ),
-            )
-        )
-        return fig
+    def plot_feasable_along_with_langrangians(self, lagrangians: List[OptimizationFunction]) -> go.Figure:
+        plot = self.plot_feasable_3d()
 
-    def add_axis_3d_plot(self, fig: go.Figure, z: np.ndarray = None) -> go.Figure:
-        fig.add_trace(
-            go.Scatter3d(
-                x=[np.min(self.x), np.max(self.x)],
-                y=[0, 0],
-                z=[0, 0],
-                mode='lines',
-                showlegend=False,
-                marker=dict(
-                    color='black',
-                    size=10,
-                    symbol='cross'
-                ),
-            )
-        )
-        fig.add_trace(
-            go.Scatter3d(
-                x=[0, 0],
-                y=[np.min(self.y), np.max(self.y)],
-                z=[0, 0],
-                mode='lines',
-                showlegend=False,
-                marker=dict(
-                    color='black',
-                    size=10,
-                    symbol='cross'
-                ),
-
-            )
-        )
-        if z is not None:
-            fig.add_trace(
+        for l in lagrangians:
+            plot.add_trace(
                 go.Scatter3d(
-                    x=[0, 0],
-                    y=[0, 0],
-                    z=[np.min(z), np.max(z)],
-                    mode='lines',
-                    showlegend=False,
-                    marker=dict(
-                        color='black',
-                        size=10,
-                        symbol='cross'
-                    ),
+                    z=l.evaluate_function()[0],
+                    x=self.x,
+                    y=self.y,
+                    opacity=1,
+                    name=f"str{l}",
                 )
             )
-        return fig
+
+        return plot
