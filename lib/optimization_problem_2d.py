@@ -1,10 +1,6 @@
 import plotly.graph_objects as go
-import plotly.express as px
 import numpy as np
-import pandas as pd
 from typing import List, Tuple, Dict, Callable, Any, Optional, Generic, TypeVar, Union
-from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from lib.optimization_problem import OptimizationProblem
 from lib.optimization_function import (
     OptimizationFunction,

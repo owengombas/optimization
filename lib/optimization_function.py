@@ -1,11 +1,6 @@
 from __future__ import annotations
-import plotly.graph_objects as go
 import numpy as np
-import pandas as pd
 from typing import List, Tuple, Dict, Callable, Any, Optional, Generic, TypeVar, Union
-from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import uuid
 
 
 class OptimizationFunction:
